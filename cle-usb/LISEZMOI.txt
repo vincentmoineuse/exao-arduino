@@ -1,0 +1,31 @@
+﻿EXAO Arduino - version cle USB (fonctionne sans reseau)
+Laboratoire de physique chimie du lycee du Hainaut
+Vincent Moineuse - Technicien de recherche et formation
+=====================================================================
+
+UTILISATION
+1. Brancher la cle USB sur un PC du lycee (Windows).
+2. Double-cliquer sur "Lancer EXAO.bat".
+   L'appli s'ouvre dans une fenetre a part (Chrome ou Edge).
+3. Brancher le boitier Arduino en USB, cliquer sur "Connecter l'Arduino",
+   choisir le port (COM...) dans la liste : l'appli reconnait le boitier
+   et ouvre la bonne page (temperature, pression, son, voltmetre-amperemetre).
+
+SI LE LANCEUR EST BLOQUE (PC verrouille, .bat interdit)
+- Clic droit sur app\index.html > Ouvrir avec > Google Chrome ou Microsoft Edge.
+  Tout fonctionne de la meme facon. Les reglages sont alors gardes dans le
+  navigateur du PC (et non sur la cle).
+
+A SAVOIR
+- Navigateurs : Chrome ou Edge uniquement (Firefox ne gere pas l'USB).
+- Fermer le moniteur serie de l'IDE Arduino : il bloque le port.
+- Les etalonnages (pression, son) et les noms des sondes sont gardes
+  dans app\profil-navigateur (cree au premier lancement). Le supprimer
+  remet l'appli a zero.
+- Les fichiers CSV exportes vont dans le dossier Telechargements du PC.
+- Meme contenu que la version en ligne :
+  https://vincentmoineuse.github.io/exao-arduino/
+  Pour mettre la cle a jour : remplacer le dossier app par la nouvelle version.
+
+CONSEIL : copier aussi sur la cle les dossiers des sketchs Arduino (.ino)
+du dossier "EXAO Arduino LP", pour pouvoir reprogrammer une carte au besoin.

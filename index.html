@@ -2,21 +2,245 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>EXAO Arduino - Lycée du Hainaut</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:760px;margin:20px auto;padding:0 12px;color:#222}
-  a.tp{display:block;padding:14px 16px;margin:10px 0;border:1px solid #bbb;border-radius:8px;text-decoration:none;color:#1f5fbf;font-size:18px}
-  .signature{border:1px solid #bbb;border-radius:6px;padding:10px 14px;margin:24px 0 10px;font-size:14px;line-height:1.6;color:#444;background:#fafafa}
-</style>
+<meta name="theme-color" content="#1f4e8c">
+<meta name="description" content="Acquisition de mesures avec Arduino : température, pression, intensité sonore, voltmètre-ampèremètre">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icones/icone-192.png">
+<link rel="apple-touch-icon" href="icones/icone-192.png">
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<h1>TP d'acquisition avec Arduino</h1>
-<a class="tp" href="vitesse_son.html">TP : vitesse du son dans l'air (mesure du temps)</a>
-<p><small>Téléphone ou tablette Android avec Chrome, carte Arduino Uno branchée par un adaptateur OTG.</small></p>
-<div class="signature">
+
+<header>
+  <div class="barre">
+    <div class="titre">EXAO Arduino <span>Lycée du Hainaut</span></div>
+    <button id="conn" class="primaire">Connecter l'Arduino</button>
+  </div>
+  <div id="etat" class="etat">Non connecté</div>
+  <nav id="onglets">
+    <button data-vue="accueil" class="actif">Accueil</button>
+    <button data-vue="temp">Température</button>
+    <button data-vue="pres">Pression</button>
+    <button data-vue="son">Intensité sonore</button>
+    <button data-vue="va">Voltmètre-ampèremètre</button>
+  </nav>
+  <div id="bandeau" class="bandeau" hidden></div>
+</header>
+
+<main>
+
+<!-- ================= ACCUEIL ================= -->
+<section id="vue-accueil" class="vue">
+  <h1>TP d'acquisition avec Arduino</h1>
+  <p>Branche le boîtier, clique sur <b>Connecter l'Arduino</b> : l'appli reconnaît le boîtier et ouvre la bonne page.</p>
+  <div class="tuiles">
+    <button class="tuile" data-vue="temp"><b>🌡️ Température</b><span>1 à 3 sondes, courbes θ = f(t)</span></button>
+    <button class="tuile" data-vue="pres"><b>🎈 Pression</b><span>Suivi P(t), loi de Boyle-Mariotte</span></button>
+    <button class="tuile" data-vue="son"><b>🔊 Intensité sonore</b><span>Niveau en dB, L = f(distance)</span></button>
+    <button class="tuile" data-vue="va"><b>⚡ Voltmètre-ampèremètre</b><span>Continu et alternatif, U = f(I)</span></button>
+  </div>
+  <p><a href="vitesse_son.html">Autre TP : vitesse du son dans l'air (page séparée)</a></p>
+  <button id="installer" class="secondaire" hidden>📲 Installer l'appli sur cet appareil</button>
+
+  <details class="aide">
+    <summary>Sur quels appareils ça fonctionne ?</summary>
+    <ul>
+      <li><b>PC</b> : Chrome ou Edge, Arduino branchée en USB.</li>
+      <li><b>Tablette ou téléphone Android</b> : Chrome, Arduino Uno <b>officielle</b> (les clones à puce CH340 ne sont pas reconnus), branchée avec un <b>adaptateur OTG</b>.</li>
+      <li><b>iPhone, iPad</b> : non pris en charge (Apple n'autorise pas l'accès USB depuis le navigateur).</li>
+      <li>Une fois l'appli ouverte une première fois avec internet, elle fonctionne aussi <b>sans réseau</b>.</li>
+    </ul>
+  </details>
+</section>
+
+<!-- ================= TEMPÉRATURE ================= -->
+<section id="vue-temp" class="vue" hidden>
+  <h1>Température</h1>
+  <p class="info">Sondes DS18B20 branchées sur D2 (T1), D3 (T2), D4 (T3). Une sonde peut être branchée ou débranchée à tout moment.</p>
+  <div class="afficheurs" id="temp-cartes"></div>
+
+  <fieldset>
+    <legend>Relevé θ = f(t)</legend>
+    <label>Un point toutes les
+      <select id="temp-dt"><option>1</option><option>2</option><option selected>5</option><option>10</option><option>30</option><option>60</option></select> s</label>
+    <button id="temp-auto" class="primaire">▶ Démarrer</button>
+    <button id="temp-man">+ Point manuel</button>
+    <button id="temp-raz" class="danger">Effacer tout</button>
+    <button id="temp-csv">Exporter CSV</button>
+  </fieldset>
+  <canvas id="temp-graphe" class="graphe"></canvas>
+  <div class="tableau"><table><thead id="temp-thead"></thead><tbody id="temp-tbody"></tbody></table></div>
+</section>
+
+<!-- ================= PRESSION ================= -->
+<section id="vue-pres" class="vue" hidden>
+  <h1>Pression</h1>
+  <p class="info">Capteur Grove MPX5700AP sur A0 (15 à 700 kPa). Étalonner à l'air libre en début de séance.</p>
+  <div class="afficheurs">
+    <div class="afficheur" style="--c:#1f4e8c">
+      <div class="nom">P</div>
+      <div class="valeur"><span id="pres-val">—</span> <small id="pres-unite-aff">hPa</small></div>
+      <div class="detail" id="pres-detail"></div>
+    </div>
+  </div>
+  <div class="ligne">
+    <label>Unité <select id="pres-unite"><option value="hPa">hPa</option><option value="kPa">kPa</option><option value="bar">bar</option></select></label>
+  </div>
+
+  <details class="cadre">
+    <summary>Étalonnage à l'air libre</summary>
+    <p>Tuyau débranché, saisir la pression atmosphérique du jour (baromètre ou météo locale) puis valider.</p>
+    <label>P atm = <input type="number" id="pres-patm" value="1013" step="1"> hPa</label>
+    <button id="pres-etal">Étalonner</button>
+    <button id="pres-etal-raz" class="danger">Annuler l'étalonnage</button>
+    <div class="petit" id="pres-etal-info"></div>
+  </details>
+
+  <div class="ligne">
+    <label>Type de relevé
+      <select id="pres-mode"><option value="bm">Loi de Boyle-Mariotte : P = f(1/V)</option><option value="tps">Suivi dans le temps : P = f(t)</option></select></label>
+  </div>
+
+  <fieldset id="pres-zbm">
+    <legend>Boyle-Mariotte</legend>
+    <label>V seringue <input type="number" id="pres-v" step="1" min="0"> mL</label>
+    <label>Volume mort (tuyau) <input type="number" id="pres-vm" step="0.1" min="0" value="0"> mL</label>
+    <button id="pres-pt" class="primaire">+ Enregistrer le point</button>
+    <button id="pres-raz-bm" class="danger">Effacer tout</button>
+    <button id="pres-csv-bm">Exporter CSV</button>
+    <div class="petit">Après avoir déplacé le piston, attendre 2 à 3 s que la pression se stabilise. Chaque point est la moyenne de la dernière 1,5 s.</div>
+  </fieldset>
+  <fieldset id="pres-ztps" hidden>
+    <legend>Suivi P(t)</legend>
+    <label>Un point toutes les
+      <select id="pres-dt"><option>0.5</option><option selected>1</option><option>2</option><option>5</option><option>10</option><option>30</option></select> s</label>
+    <button id="pres-auto" class="primaire">▶ Démarrer</button>
+    <button id="pres-man">+ Point manuel</button>
+    <button id="pres-raz-tps" class="danger">Effacer tout</button>
+    <button id="pres-csv-tps">Exporter CSV</button>
+  </fieldset>
+  <div class="resultat" id="pres-res" hidden></div>
+  <canvas id="pres-graphe" class="graphe"></canvas>
+  <div class="tableau"><table><thead id="pres-thead"></thead><tbody id="pres-tbody"></tbody></table></div>
+</section>
+
+<!-- ================= INTENSITÉ SONORE ================= -->
+<section id="vue-son" class="vue" hidden>
+  <h1>Intensité sonore</h1>
+  <p class="info">Grove Loudness Sensor sur A0. Le niveau est relatif tant qu'il n'est pas étalonné avec un sonomètre.</p>
+  <div class="afficheurs">
+    <div class="afficheur" style="--c:#8c3b1f">
+      <div class="nom">L</div>
+      <div class="valeur"><span id="son-val">—</span> <small>dB</small></div>
+      <div class="detail" id="son-detail"></div>
+    </div>
+  </div>
+
+  <details class="cadre">
+    <summary>Étalonnage avec un sonomètre</summary>
+    <p>Placer le sonomètre à côté du micro, produire un son stable, saisir la valeur lue sur le sonomètre puis valider.</p>
+    <label>Sonomètre : <input type="number" id="son-ref" step="0.1"> dB</label>
+    <button id="son-etal">Étalonner</button>
+    <button id="son-etal-raz" class="danger">Annuler l'étalonnage</button>
+    <div class="petit" id="son-etal-info"></div>
+  </details>
+
+  <div class="ligne">
+    <label>Type de relevé
+      <select id="son-mode"><option value="d">Niveau en fonction de la distance : L = f(log d)</option><option value="tps">Suivi dans le temps : L = f(t)</option></select></label>
+  </div>
+  <fieldset id="son-zd">
+    <legend>L = f(distance)</legend>
+    <label>Distance source - micro <input type="number" id="son-d" step="1" min="0"> cm</label>
+    <button id="son-pt" class="primaire">+ Enregistrer le point</button>
+    <button id="son-raz-d" class="danger">Effacer tout</button>
+    <button id="son-csv-d">Exporter CSV</button>
+    <div class="petit">Son stable, attendre 1 à 2 s après avoir déplacé le micro. Chaque point est la moyenne de la dernière seconde.</div>
+  </fieldset>
+  <fieldset id="son-ztps" hidden>
+    <legend>Suivi L(t)</legend>
+    <label>Un point toutes les
+      <select id="son-dt"><option>0.5</option><option selected>1</option><option>2</option><option>5</option></select> s</label>
+    <button id="son-auto" class="primaire">▶ Démarrer</button>
+    <button id="son-man">+ Point manuel</button>
+    <button id="son-raz-tps" class="danger">Effacer tout</button>
+    <button id="son-csv-tps">Exporter CSV</button>
+  </fieldset>
+  <div class="resultat" id="son-res" hidden></div>
+  <canvas id="son-graphe" class="graphe"></canvas>
+  <div class="tableau"><table><thead id="son-thead"></thead><tbody id="son-tbody"></tbody></table></div>
+</section>
+
+<!-- ================= VOLTMÈTRE-AMPÈREMÈTRE ================= -->
+<section id="vue-va" class="vue" hidden>
+  <h1>Voltmètre-ampèremètre</h1>
+  <p class="info">Calibres : 0 à 24 V et 0 à 5 A, en continu ou en alternatif. <b>Très basse tension uniquement : ne jamais brancher le secteur.</b></p>
+  <div class="ligne">
+    <label class="radio"><input type="radio" name="va-mode" value="moy" checked> Continu (valeur moyenne)</label>
+    <label class="radio"><input type="radio" name="va-mode" value="eff"> Alternatif (valeur efficace)</label>
+  </div>
+  <div class="afficheurs">
+    <div class="afficheur" style="--c:#1f4e8c">
+      <div class="nom">U</div>
+      <div class="valeur"><span id="va-u">—</span> <small>V</small></div>
+      <div class="detail" id="va-ud"></div>
+    </div>
+    <div class="afficheur" style="--c:#b8860b">
+      <div class="nom">I</div>
+      <div class="valeur"><span id="va-i">—</span> <small>A</small></div>
+      <div class="detail" id="va-id"></div>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <label>Type de relevé
+      <select id="va-type"><option value="car">Caractéristique U = f(I)</option><option value="tps">Suivi dans le temps : U(t), I(t)</option></select></label>
+  </div>
+  <fieldset id="va-zcar">
+    <legend>Caractéristique</legend>
+    <button id="va-pt" class="primaire">+ Enregistrer le point</button>
+    <button id="va-raz-car" class="danger">Effacer tout</button>
+    <button id="va-csv-car">Exporter CSV</button>
+    <div class="petit">Chaque point est la moyenne des 2 dernières secondes de mesure.</div>
+  </fieldset>
+  <fieldset id="va-ztps" hidden>
+    <legend>Suivi dans le temps</legend>
+    <label>Un point toutes les
+      <select id="va-dt"><option>0.5</option><option selected>1</option><option>2</option><option>5</option><option>10</option><option>30</option></select> s</label>
+    <button id="va-auto" class="primaire">▶ Démarrer</button>
+    <button id="va-man">+ Point manuel</button>
+    <button id="va-raz-tps" class="danger">Effacer tout</button>
+    <button id="va-csv-tps">Exporter CSV</button>
+    <label>Courbe <select id="va-courbe"><option value="u">U(t)</option><option value="i">I(t)</option><option value="p">P(t)</option></select></label>
+  </fieldset>
+  <div class="resultat" id="va-res" hidden></div>
+  <canvas id="va-graphe" class="graphe"></canvas>
+  <div class="tableau"><table><thead id="va-thead"></thead><tbody id="va-tbody"></tbody></table></div>
+
+  <details class="cadre">
+    <summary>Étalonnage (professeur)</summary>
+    <ol class="petit">
+      <li>Rien de branché sur V : <button id="va-zu">Zéro tension</button></li>
+      <li>Aucun courant dans A : <button id="va-zi">Zéro courant</button></li>
+      <li>Tension connue (multimètre de référence) : <input type="number" id="va-refu" step="0.01"> V <button id="va-cu">Étalonner U</button></li>
+      <li>Intensité connue : <input type="number" id="va-refi" step="0.001"> A <button id="va-ci">Étalonner I</button></li>
+    </ol>
+    <button id="va-rcal" class="danger">Valeurs par défaut</button>
+    <div class="petit" id="va-cal">Valeurs enregistrées dans la carte : connectez l'Arduino.</div>
+  </details>
+</section>
+
+<p id="diag" class="diag"></p>
+
+<footer class="signature">
   Laboratoire de physique chimie du lycée du Hainaut<br>
   Vincent Moineuse - Technicien de recherche et formation
-</div>
+</footer>
+</main>
+
+<script src="serial-polyfill.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
