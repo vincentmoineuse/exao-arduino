@@ -4,7 +4,7 @@
      Pression             : "P;pression_kPa;CAN"
      Intensité sonore     : "S;rms;crete_a_crete;moyenne"   (unités du CAN)
      Voltmètre-ampèremètre: "M;Umoy;Ueff;Imoy;Ieff;f;sat" et "CAL;zU;zI;gU;gI"
-     (vitesse du son      : "T;médiane;min;max;n" -> page séparée vitesse_son.html)
+     Vitesse du son       : "T;médiane_µs;min;max;n"   (temps aller-retour, n = mesures valides)
    Commandes envoyées au voltmètre-ampèremètre : ZU, ZI, GU<gain>, GI<gain>, RAZ
    Laboratoire de physique chimie du lycée du Hainaut — Vincent Moineuse */
 'use strict';
@@ -21,7 +21,7 @@ const num = s => parseFloat(String(s).replace(',', '.'));
 const moyenne = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN;
 
 /* =================== navigation =================== */
-const NOMS = { temp: 'Température', pres: 'Pression', son: 'Intensité sonore', va: 'Voltmètre-ampèremètre' };
+const NOMS = { temp: 'Température', pres: 'Pression', son: 'Intensité sonore', va: 'Voltmètre-ampèremètre', vit: 'Vitesse du son' };
 let vue = 'accueil';
 function montrer(v) {
   vue = v;
@@ -112,7 +112,7 @@ async function envoyer(txt) {
 
 function identifier(p) {
   if (p[0] === 'T' && (p.length === 4 || p.length === 3)) return 'temp';     // 3 sondes (ou ancienne sonde unique)
-  if (p[0] === 'T' && p.length === 5) return 'vitesse';
+  if (p[0] === 'T' && p.length === 5) return 'vit';
   if (p[0] === 'P' && p.length >= 2) return 'pres';
   if (p[0] === 'S' && p.length >= 4) return 'son';
   if ((p[0] === 'M' && p.length >= 7) || (p[0] === 'CAL' && p.length >= 5)) return 'va';
@@ -128,11 +128,6 @@ function recevoir(l) {
   if (!id) return;
   if (id !== boitier) {
     boitier = id; marquerBoitier();
-    if (id === 'vitesse') {
-      etat('Connecté — boîtier vitesse du son détecté', true);
-      bandeau("Boîtier « vitesse du son » détecté : ce TP a sa propre page.", 'Ouvrir la page', () => { location.href = 'vitesse_son.html'; });
-      return;
-    }
     etat('Connecté — boîtier détecté : ' + NOMS[id], true);
     if (vue === 'accueil') montrer(id);
     else if (vue !== id) bandeau(`Boîtier « ${NOMS[id]} » détecté.`, 'Ouvrir sa page', () => montrer(id));
@@ -538,7 +533,55 @@ const va = (() => {
   return { ligne, redessiner: dessiner };
 })();
 
-const modules = { temp, pres, son, va };
+/* =================== VITESSE DU SON =================== */
+const vit = (() => {
+  let live = null;
+  const hist = [], pts = [];                     // pts : {d (cm), t (µs)}
+  $('vit-theta').value = store.get('vit.theta', 20);
+  $('vit-theta').onchange = e => { store.set('vit.theta', num(e.target.value)); dessiner(); };
+  const tMoy = () => { const r = recent(hist, 1200).filter(h => h.t > 0); return r.length ? moyenne(r.map(h => h.t)) : null; };
+
+  function ligne(p) {
+    const v = p.slice(1, 5).map(num); if (v.some(isNaN)) return;
+    live = { t: v[0], min: v[1], max: v[2], n: v[3] };
+    hist.push({ date: Date.now(), t: live.n > 0 ? live.t : 0 }); if (hist.length > 30) hist.shift();
+    const ok = live.n > 0 && live.t > 0;
+    $('vit-t').textContent = ok ? Math.round(live.t) : '—';
+    $('vit-detail').innerHTML = ok ? `min ${live.min} – max ${live.max} µs, ${live.n} mesures valides`
+      : '<span class="alerte">pas d\'écho : vérifier l\'écran réflecteur (face au boîtier, perpendiculaire, à plus de 3 cm)</span>';
+  }
+  $('vit-pt').onclick = () => {
+    const t = tMoy(), d = num($('vit-d').value);
+    if (!live) { alert("Aucune mesure reçue : connectez le boîtier vitesse du son."); return; }
+    if (t == null) { alert("Pas d'écho : vérifiez la position de l'écran réflecteur."); return; }
+    if (!(d > 0)) { alert('Saisissez la distance boîtier - écran (cm).'); $('vit-d').focus(); return; }
+    pts.push({ d, t }); $('vit-d').value = ''; $('vit-d').focus(); dessiner();
+  };
+  $('vit-raz').onclick = () => { if (confirmerRaz(pts)) { pts.length = 0; dessiner(); } };
+  $('vit-csv').onclick = () => exporterCSV('vitesse_son', ['d (cm)', 't aller-retour (µs)', 'v = 2d/t (m/s)'], pts.map(q => [q.d, q.t, 2 * q.d * 1e4 / q.t]));
+
+  function dessiner() {
+    remplirTableau('vit-thead', 'vit-tbody', ['d (cm)', 't aller-retour (µs)', 'v = 2d/t (m/s)'],
+      pts.map(q => [fmt(q.d, 1), fmt(q.t, 0), fmt(2 * q.d * 1e4 / q.t, 1)]), i => { pts.splice(i, 1); dessiner(); });
+    const r = regression(pts.map(q => q.t), pts.map(q => q.d));
+    tracer($('vit-graphe'), { xlabel: 't aller-retour (µs)', ylabel: 'd (cm)', x0: true, y0: true, droite: r,
+      series: [{ couleur: '#00695c', pts: pts.map(q => [q.t, q.d]) }] });
+    const res = $('vit-res'), th = num($('vit-theta').value);
+    const vth = isFinite(th) ? 331.3 * Math.sqrt(1 + th / 273.15) : null;
+    if (r && pts.length >= 3 && r.a > 0) {
+      const v = 2 * r.a * 1e4, t0 = -r.b / r.a;   // d = (v/2)(t - t0) ; a en cm/µs -> ×1e4 pour des m/s
+      res.innerHTML = `Droite de régression : d = ${fmt(r.a, 5)} × t ${r.b < 0 ? '−' : '+'} ${fmt(Math.abs(r.b), 2)} &nbsp; (R² = ${r.r2.toFixed(4).replace('.', ',')})<br>` +
+        `L'onde parcourt 2d pendant t, donc v = 2 × pente : <b>v = ${fmt(v, 1)} m/s</b>. Retard propre au module : t₀ ≈ ${fmt(t0, 0)} µs (éliminé par la régression).` +
+        (vth ? `<br>Valeur théorique à ${fmt(th, 1)} °C : v = 331,3 × √(1 + θ/273,15) = ${fmt(vth, 1)} m/s — écart ${fmt((v - vth) / vth * 100, 1)} %` : '');
+      res.hidden = false;
+    } else res.hidden = true;
+  }
+  return { ligne, redessiner: dessiner };
+})();
+
+const modules = { temp, pres, son, va, vit };
+const depart = location.hash.slice(1);
+if (modules[depart]) montrer(depart);
 window.addEventListener('resize', () => { if (modules[vue]) modules[vue].redessiner(); });
 
 /* =================== PWA : installation et fonctionnement hors ligne =================== */

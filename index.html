@@ -25,6 +25,7 @@
     <button data-vue="pres">Pression</button>
     <button data-vue="son">Intensité sonore</button>
     <button data-vue="va">Voltmètre-ampèremètre</button>
+    <button data-vue="vit">Vitesse du son</button>
   </nav>
   <div id="bandeau" class="bandeau" hidden></div>
 </header>
@@ -40,8 +41,8 @@
     <button class="tuile" data-vue="pres"><b>🎈 Pression</b><span>Suivi P(t), loi de Boyle-Mariotte</span></button>
     <button class="tuile" data-vue="son"><b>🔊 Intensité sonore</b><span>Niveau en dB, L = f(distance)</span></button>
     <button class="tuile" data-vue="va"><b>⚡ Voltmètre-ampèremètre</b><span>Continu et alternatif, U = f(I)</span></button>
+    <button class="tuile" data-vue="vit"><b>📏 Vitesse du son</b><span>Écho ultrasonore, d = f(t)</span></button>
   </div>
-  <p><a href="vitesse_son.html">Autre TP : vitesse du son dans l'air (page séparée)</a></p>
   <button id="installer" class="secondaire" hidden>📲 Installer l'appli sur cet appareil</button>
 
   <details class="aide">
@@ -230,6 +231,32 @@
     <button id="va-rcal" class="danger">Valeurs par défaut</button>
     <div class="petit" id="va-cal">Valeurs enregistrées dans la carte : connectez l'Arduino.</div>
   </details>
+</section>
+
+<!-- ================= VITESSE DU SON ================= -->
+<section id="vue-vit" class="vue" hidden>
+  <h1>Vitesse du son dans l'air</h1>
+  <p class="info">Télémètre à ultrasons Grove sur D7. Placer un écran réflecteur plan (au moins 10 × 10 cm) face au boîtier, perpendiculaire à l'axe. Le temps mesuré est celui de l'<b>aller-retour</b> de l'onde.</p>
+  <div class="afficheurs">
+    <div class="afficheur" style="--c:#00695c">
+      <div class="nom">t (aller-retour)</div>
+      <div class="valeur"><span id="vit-t">—</span> <small>µs</small></div>
+      <div class="detail" id="vit-detail"></div>
+    </div>
+  </div>
+
+  <fieldset>
+    <legend>Relevé d = f(t)</legend>
+    <label>Distance boîtier - écran <input type="number" id="vit-d" step="0.1" min="0"> cm</label>
+    <button id="vit-pt" class="primaire">+ Enregistrer le point</button>
+    <button id="vit-raz" class="danger">Effacer tout</button>
+    <button id="vit-csv">Exporter CSV</button>
+    <div class="petit">Mesurer d au réglet ou au mètre ruban, attendre 1 à 2 s que t se stabilise. Faire au moins 4 points, par exemple de 10 à 70 cm.</div>
+    <label>Température de l'air <input type="number" id="vit-theta" step="0.5" value="20"> °C</label>
+  </fieldset>
+  <div class="resultat" id="vit-res" hidden></div>
+  <canvas id="vit-graphe" class="graphe"></canvas>
+  <div class="tableau"><table><thead id="vit-thead"></thead><tbody id="vit-tbody"></tbody></table></div>
 </section>
 
 <p id="diag" class="diag"></p>

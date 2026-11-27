@@ -1,7 +1,7 @@
 /* Service worker : garde l'appli en mémoire pour qu'elle fonctionne sans réseau.
    En ligne : on charge la dernière version (délai max 4 s), sinon on sert la copie gardée.
    Après une modification des fichiers, augmenter VERSION. */
-const VERSION = 'exao-v1';
+const VERSION = 'exao-v2';
 const FICHIERS = [
   './', './index.html', './app.js', './app.css', './serial-polyfill.js', './manifest.webmanifest',
   './vitesse_son.html', './icones/icone-192.png', './icones/icone-512.png', './icones/icone-maskable-512.png'
